@@ -79,3 +79,58 @@ body {
 .current-player {
     color: #00ff00;
 }
+
+#user-popup {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid #ffd700;
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 2000;
+    width: 250px;
+    text-align: center;
+    pointer-events: auto;
+}
+
+.popup-hidden {
+    display: none;
+}
+
+.display-none {
+    display: none;
+}
+
+.popup-content {
+    position: relative;
+    color: white;
+}
+
+.close-btn {
+    position: absolute;
+    top: -10px;
+    right: 0;
+    font-size: 24px;
+    cursor: pointer;
+    color: #ff0000;
+}
+
+#auth-section button, #btn-save-name {
+    padding: 8px 15px;
+    background: #4285F4;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+#change-name-input {
+    padding: 8px;
+    border-radius: 5px;
+    border: none;
+    width: 80%;
+    margin-top: 10px;
+}

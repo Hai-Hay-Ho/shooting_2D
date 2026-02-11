@@ -47,6 +47,7 @@ function preload() {
     this.load.image('gun', 'assets/gun.png');
     this.load.image('bullet', 'assets/bullet.png');
     this.load.image('move_right', 'assets/right.png');
+    this.load.image('user', 'assets/user.png');
 }
 
 function create() {
@@ -66,6 +67,7 @@ function create() {
 
     // SHOP & COINS
     this.shopIcon = this.add.image(660, 30, 'shop').setScale(0.5).setDepth(20).setInteractive();
+    this.userIcon = this.add.image(600, 30, 'user').setScale(0.5).setDepth(20).setInteractive();
     
     this.coinIcon = this.add.image(785, 35, 'coin').setScale(0.7).setDepth(20);
     this.coins = 0;
@@ -146,6 +148,16 @@ function create() {
     this.shopIcon.on('pointerdown', () => {
         this.shopContainer.setVisible(!this.shopContainer.visible);
     });
+
+    this.userIcon.on('pointerdown', () => {
+        const popup = document.getElementById('user-popup');
+        popup.classList.toggle('popup-hidden');
+        updateUserUI();
+    });
+
+    document.getElementById('close-user-popup').onclick = () => {
+        document.getElementById('user-popup').classList.add('popup-hidden');
+    };
 
     gunBtn.on('pointerdown', () => {
         let currentCost = this.baseUpgradeCost + (this.gunLevel * this.upgradeStep);
@@ -410,25 +422,70 @@ function hitPlayer(player, enemy) {
 }
 
 function initSupabaseAuth() {
-    // Ẩn vì người dùng yêu cầu xóa UI tạm thời
-    // const loginBtn = document.getElementById('btn-google-login');
-    // const nameInput = document.getElementById('player-name');
-    // const userInfo = document.getElementById('user-info');
+    const loginBtn = document.getElementById('btn-google-login');
+    const saveNameBtn = document.getElementById('btn-save-name');
+    const changeNameInput = document.getElementById('change-name-input');
 
     if (supabaseClient) {
-        // Kiểm tra session hiện tại
         supabaseClient.auth.getSession().then(({ data: { session } }) => {
             if (session) {
                 currentUser = session.user;
-                // userInfo.innerText = "Chào: " + (currentUser.user_metadata.full_name || currentUser.email);
+                updateUserUI();
             }
         });
+
+        loginBtn.onclick = async () => {
+            const { error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo: window.location.href }
+            });
+            if (error) console.error("Lỗi đăng nhập:", error.message);
+        };
+
+        saveNameBtn.onclick = async () => {
+            const newName = changeNameInput.value.trim();
+            if (newName && currentUser) {
+                const { error } = await supabaseClient
+                    .from('leaderboard')
+                    .upsert({ 
+                        user_id: currentUser.id, 
+                        player_name: newName,
+                        updated_at: new Date()
+                    }, { onConflict: 'user_id' });
+                
+                if (!error) {
+                    alert("Đã đổi tên thành công!");
+                    localStorage.setItem('display_name', newName);
+                    loadLeaderboard();
+                } else {
+                    console.error("Lỗi đổi tên:", error.message);
+                }
+            }
+        };
+    }
+}
+
+function updateUserUI() {
+    const authSection = document.getElementById('auth-section');
+    const profileSection = document.getElementById('profile-section');
+    const welcomeMsg = document.getElementById('welcome-msg');
+    const changeNameInput = document.getElementById('change-name-input');
+
+    if (currentUser) {
+        authSection.classList.add('display-none');
+        profileSection.classList.remove('display-none');
+        const displayName = localStorage.getItem('display_name') || currentUser.user_metadata.full_name || currentUser.email;
+        welcomeMsg.innerText = "Chào, " + displayName;
+        changeNameInput.value = displayName;
+    } else {
+        authSection.classList.remove('display-none');
+        profileSection.classList.add('display-none');
     }
 }
 
 async function saveScore(score) {
-    // Lấy tên từ LocalStorage hoặc mặc định là Guest (vì đã xóa Input UI)
-    const name = currentUser ? (currentUser.user_metadata.full_name || currentUser.email) : (localStorage.getItem('guest_name') || "Guest");
+    // Lấy tên ưu tiên: Tên đã đổi > Tên Google > Guest
+    const name = localStorage.getItem('display_name') || (currentUser ? (currentUser.user_metadata.full_name || currentUser.email) : "Guest");
     
     // Lưu vào Local Storage (Local Leaderboard giả lập)
     let localTop = JSON.parse(localStorage.getItem('local_top3') || "[]");
