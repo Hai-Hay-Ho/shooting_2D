@@ -31,6 +31,8 @@ function preload() {
     this.load.image('coin', 'assets/coin.png');
     this.load.image('heart', 'assets/heart.png');
     this.load.image('gun', 'assets/gun.png');
+    this.load.image('bullet', 'assets/bullet.png');
+    this.load.image('move_right', 'assets/right.png');
 }
 
 function create() {
@@ -58,27 +60,30 @@ function create() {
     // Initial Shop Levels
     this.gunLevel = 0;
     this.hpLevel = 0;
+    this.attackSpeedLevel = 0;
     this.playerDamage = 10;
+    this.fireRateMultiplier = 1.0;
     this.upgradeCost = 50;
+    
 
     this.shopContainer = this.add.container(400, 300).setDepth(30).setVisible(false);
     
-    let shopBg = this.add.rectangle(0, 0, 500, 300, 0x000000, 0.8)
+    let shopBg = this.add.rectangle(0, 0, 500, 400, 0x000000, 0.8)
         .setStrokeStyle(4, 0xffffff);
     this.shopContainer.add(shopBg);
 
-    let shopTitle = this.add.text(0, -120, "CỬA HÀNG NÂNG CẤP", {
+    let shopTitle = this.add.text(0, -160, "CỬA HÀNG NÂNG CẤP", {
         fontSize: "28px",
         fill: "#ffffff",
         fontStyle: "bold"
     }).setOrigin(0.5);
     this.shopContainer.add(shopTitle);
 
-    // Gun Upgrade
-    let gunIcon = this.add.image(-130, -40, 'gun').setScale(0.6);
-    this.gunLevelText = this.add.text(-80, -40, "Level: 0", { fontSize: "20px", fill: "#ffffff" }).setOrigin(0, 0.5);
-    let gunDesc = this.add.text(30, -40, "+2.5 DMG", { fontSize: "16px", fill: "#00ff00" }).setOrigin(0, 0.5);
-    let gunBtn = this.add.text(140, -40, "50 Xu", {
+    // Gun Upgrade (Damage)
+    let gunIcon = this.add.image(-130, -80, 'gun').setScale(0.6);
+    this.gunLevelText = this.add.text(-80, -80, "Level: 0", { fontSize: "20px", fill: "#ffffff" }).setOrigin(0, 0.5);
+    let gunDesc = this.add.text(30, -80, "+2.5 DMG", { fontSize: "16px", fill: "#00ff00" }).setOrigin(0, 0.5);
+    let gunBtn = this.add.text(140, -80, "50 Xu", {
         fontSize: "20px",
         fill: "#ffffff",
         backgroundColor: "#d4af37",
@@ -87,10 +92,10 @@ function create() {
     this.shopContainer.add([gunIcon, this.gunLevelText, gunDesc, gunBtn]);
 
     // HP Upgrade
-    let hpIcon = this.add.image(-130, 40, 'heart').setScale(0.7);
-    this.hpLevelText = this.add.text(-80, 40, "Level: 0", { fontSize: "20px", fill: "#ffffff" }).setOrigin(0, 0.5);
-    let hpDesc = this.add.text(30, 40, "+25 HP", { fontSize: "16px", fill: "#00ff00" }).setOrigin(0, 0.5);
-    let hpBtn = this.add.text(140, 40, "50 Xu", {
+    let hpIcon = this.add.image(-130, 0, 'heart').setScale(0.7);
+    this.hpLevelText = this.add.text(-80, 0, "Level: 0", { fontSize: "20px", fill: "#ffffff" }).setOrigin(0, 0.5);
+    let hpDesc = this.add.text(30, 0, "+25 HP", { fontSize: "16px", fill: "#00ff00" }).setOrigin(0, 0.5);
+    let hpBtn = this.add.text(140, 0, "50 Xu", {
         fontSize: "20px",
         fill: "#ffffff",
         backgroundColor: "#d4af37",
@@ -98,8 +103,20 @@ function create() {
     }).setOrigin(0, 0.5).setInteractive();
     this.shopContainer.add([hpIcon, this.hpLevelText, hpDesc, hpBtn]);
 
+    // Attack Speed Upgrade
+    let spdIcon = this.add.image(-130, 80, 'bullet').setScale(0.06);
+    this.spdLevelText = this.add.text(-80, 80, "Level: 0", { fontSize: "20px", fill: "#ffffff" }).setOrigin(0, 0.5);
+    let spdDesc = this.add.text(30, 80, "+0.025 Spd", { fontSize: "16px", fill: "#00ff00" }).setOrigin(0, 0.5);
+    let spdBtn = this.add.text(140, 80, "50 Xu", {
+        fontSize: "20px",
+        fill: "#ffffff",
+        backgroundColor: "#d4af37",
+        padding: { x: 10, y: 5 }
+    }).setOrigin(0, 0.5).setInteractive();
+    this.shopContainer.add([spdIcon, this.spdLevelText, spdDesc, spdBtn]);
+
     // Close Button
-    let closeBtn = this.add.text(180, -135, "X", {
+    let closeBtn = this.add.text(180, -175, "X", {
         fontSize: "24px",
         fill: "#ff0000",
         fontStyle: "bold"
@@ -142,6 +159,21 @@ function create() {
         }
     });
 
+    spdBtn.on('pointerdown', () => {
+        if (this.coins >= this.upgradeCost) {
+            this.coins -= this.upgradeCost;
+            this.attackSpeedLevel++;
+            this.fireRateMultiplier += 0.025;
+            this.coinText.setText(this.coins);
+            this.spdLevelText.setText("Level: " + this.attackSpeedLevel);
+            spdBtn.setBackgroundColor('#00ff00');
+            this.time.delayedCall(200, () => spdBtn.setBackgroundColor('#d4af37'));
+        } else {
+            spdBtn.setBackgroundColor('#ff0000');
+            this.time.delayedCall(200, () => spdBtn.setBackgroundColor('#d4af37'));
+        }
+    });
+
     this.bg = this.add.tileSprite(0, 0, 800, 600, 'background').setOrigin(0, 0);
 
     // PLAYER
@@ -169,7 +201,6 @@ function create() {
     // Hàm tạo 1 con quái
     this.spawnEnemy = (x, y) => {
         let enemy = this.enemies.create(x, y, 'enemy');
-        enemy.setCollideWorldBounds(true);
         enemy.body.setSize(enemy.displayWidth * 0.6, enemy.displayHeight * 0.8);
         enemy.body.setOffset(enemy.displayWidth * 0.2, enemy.displayHeight * 0.1);
         enemy.maxHp = 50;
@@ -180,6 +211,7 @@ function create() {
         this.enemyHPBars.add(enemy.hpBar);
         return enemy;
     };
+    
 
     // Spawn đợt đầu ngẫu nhiên 1-2 con cách nhau 300ms
     this.spawnCount = 2; 
@@ -200,6 +232,36 @@ function create() {
     this.lastShootTime = 0;
 
     this.physics.add.collider(this.player, this.enemies, hitPlayer, null, this);
+
+    this.isRightDown = false;
+
+    // Tạo một vùng nền cho nút để dễ thấy hơn (Nút Right ở bên phải)
+    this.rightBtnBg = this.add.rectangle(100, 520, 80, 80, 0x000000, 0.4)
+        .setInteractive()
+        .setDepth(100)
+        .setScrollFactor(0);
+
+    this.rightBtn = this.add.image(100, 520, 'move_right')
+        .setScale(1.2)
+        .setDepth(101)
+        .setScrollFactor(0)
+        .setAlpha(0.8);
+
+    // Xử lý sự kiện cho nút
+    this.rightBtnBg.on('pointerdown', () => {
+        this.isRightDown = true;
+        this.rightBtn.setAlpha(1);
+        this.rightBtnBg.setAlpha(0.7);
+    });
+
+    const release = () => {
+        this.isRightDown = false;
+        this.rightBtn.setAlpha(0.8);
+        this.rightBtnBg.setAlpha(0.4);
+    };
+
+    this.rightBtnBg.on('pointerup', release);
+    this.rightBtnBg.on('pointerout', release);
 }
 
 function update() {
@@ -235,45 +297,29 @@ function update() {
 
     if (!this.isGameOver) {
         let enemiesList = this.enemies.getChildren();
-        let enemyOnScreen = enemiesList.some(enemy => enemy.active && enemy.x > 0 && enemy.x < 800);
-        let isMoving = this.cursors.right.isDown;
+        move.call(this);
 
-        if (isMoving) {
-            this.bg.tilePositionX += 5;
-            if (Math.floor(this.time.now / 150) % 2 === 0) {
-                this.player.setTexture(enemyOnScreen ? 'run_shoot' : 'run');
-            } else {
-                this.player.setTexture('character');
-            }
-        } 
-        else if (enemyOnScreen) {
-            if (Math.floor(this.time.now / 200) % 2 === 0) {
-                this.player.setTexture('shoot');
-            } else {
-                this.player.setTexture('character');
-            }
-        } 
-        else {
-            this.player.setTexture('character');
-        }
-
+        //logic nhắm bắn và gây sát thương
         //tìm con quái đầu tiên đang hiện trên màn hình
         let targetEnemy = enemiesList.find(enemy => enemy.active && enemy.x > 0 && enemy.x < 800);
 
         if (targetEnemy) {
             let currentTime = this.time.now;
-            if (currentTime - this.lastShootTime > 400) { // bắn mỗi 400ms
+            // Bắn nhanh hơn dựa trên fireRateMultiplier
+            let currentShootDelay = 400 / this.fireRateMultiplier;
+            
+            if (currentTime - this.lastShootTime > currentShootDelay) { 
                 targetEnemy.hp -= this.playerDamage;
                 this.lastShootTime = currentTime;
 
                 targetEnemy.setTint(0xff0000);
                 this.time.delayedCall(100, () => {
-                    targetEnemy.clearTint();
+                    if (targetEnemy.active) targetEnemy.clearTint();
                 });
 
                 if (targetEnemy.hp <= 0) {
                     targetEnemy.hp = 0;
-                    targetEnemy.hpBar.clear();
+                    if (targetEnemy.hpBar) targetEnemy.hpBar.clear();
                     targetEnemy.setActive(false).setVisible(false);
                     targetEnemy.destroy();
 
@@ -287,33 +333,6 @@ function update() {
                 }
             }
         }
-
-        // Cập nhật trạng thái cho tất cả quái vật
-        enemiesList.forEach(enemy => {
-            if (enemy.active) {
-                enemy.setVelocityX(-100);
-
-                if (Math.floor(this.time.now / 200) % 2 === 0) {
-                    enemy.setTexture('enemy');
-                } else {
-                    enemy.setTexture('enemy_walk');
-                }
-
-                if (enemy.x < -50) {
-                    enemy.x = 850;
-                }
-
-                // Vẽ thanh máu ngay tại đây cho mỗi con quái
-                drawHealthBar(
-                    enemy.hpBar,
-                    enemy.x - 30,
-                    enemy.y - 70,
-                    enemy.hp,
-                    enemy.maxHp,
-                    60
-                );
-            }
-        });
     }
 
     // thanh máu player
@@ -394,4 +413,61 @@ function drawHealthBar(graphics, x, y, hp, maxHp, width) {
         let healthWidth = (hp / maxHp) * width;
         graphics.fillRect(x, y, healthWidth, 8);
     }
+}
+
+function move() {
+    if (this.isGameOver) return;
+
+    let enemiesList = this.enemies.getChildren();
+    let enemyOnScreen = enemiesList.some(enemy => enemy.active && enemy.x > 0 && enemy.x < 800);
+    
+    let isMovingRight = this.cursors.right.isDown || this.isRightDown;
+
+    if (isMovingRight) {
+        this.bg.tilePositionX += 5;
+        this.player.setFlipX(false);
+        if (Math.floor(this.time.now / 150) % 2 === 0) {
+            this.player.setTexture(enemyOnScreen ? 'run_shoot' : 'run');
+        } else {
+            this.player.setTexture('character');
+        }
+    } 
+    else if (enemyOnScreen) {
+        if (Math.floor(this.time.now / 200) % 2 === 0) {
+            this.player.setTexture('shoot');
+        } else {
+            this.player.setTexture('character');
+        }
+    } 
+    else {
+        this.player.setTexture('character');
+    }
+
+    // Cập nhật trạng thái cho tất cả quái vật
+    enemiesList.forEach(enemy => {
+        if (enemy.active) {
+            let speed = isMovingRight ? -250 : -100;
+            
+            enemy.setVelocityX(speed);
+
+            if (Math.floor(this.time.now / 200) % 2 === 0) {
+                enemy.setTexture('enemy');
+            } else {
+                enemy.setTexture('enemy_walk');
+            }
+
+            if (enemy.x < -100) enemy.x = 900;
+            if (enemy.x > 900) enemy.x = -100;
+
+            // Vẽ thanh máu cho mỗi con quái
+            drawHealthBar(
+                enemy.hpBar,
+                enemy.x - 30,
+                enemy.y - 70,
+                enemy.hp,
+                enemy.maxHp,
+                60
+            );
+        }
+    });
 }
