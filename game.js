@@ -1,3 +1,17 @@
+const SUPABASE_URL = SUPABASE_CONFIG.URL;
+const SUPABASE_KEY = SUPABASE_CONFIG.ANON_KEY;
+// Đổi tên biến để tránh xung đột với thư viện Supabase CDN
+let supabaseClient = null;
+try {
+    if (typeof supabase !== 'undefined' && SUPABASE_URL.startsWith('http')) {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+} catch (e) {
+    console.error("Supabase init error:", e);
+}
+
+let currentUser = null;
+
 const config = {
     type: Phaser.AUTO,
     width: 800,
@@ -39,6 +53,10 @@ function create() {
 
     this.isGameOver = false;
     this.startTime = this.time.now;
+    
+    // Khởi tạo tính năng Leaderboard và Auth
+    initSupabaseAuth.call(this);
+    loadLeaderboard();
 
     this.timeText = this.add.text(400, 20, "00:00", {
         fontSize: "28px",
@@ -383,8 +401,91 @@ function hitPlayer(player, enemy) {
 
         this.isGameOver = true;
         this.physics.pause();
+        
+        let finalTime = Math.floor((this.time.now - this.startTime) / 1000);
+        saveScore(finalTime);
+        
         showGameOver.call(this);
     }
+}
+
+function initSupabaseAuth() {
+    // Ẩn vì người dùng yêu cầu xóa UI tạm thời
+    // const loginBtn = document.getElementById('btn-google-login');
+    // const nameInput = document.getElementById('player-name');
+    // const userInfo = document.getElementById('user-info');
+
+    if (supabaseClient) {
+        // Kiểm tra session hiện tại
+        supabaseClient.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                currentUser = session.user;
+                // userInfo.innerText = "Chào: " + (currentUser.user_metadata.full_name || currentUser.email);
+            }
+        });
+    }
+}
+
+async function saveScore(score) {
+    // Lấy tên từ LocalStorage hoặc mặc định là Guest (vì đã xóa Input UI)
+    const name = currentUser ? (currentUser.user_metadata.full_name || currentUser.email) : (localStorage.getItem('guest_name') || "Guest");
+    
+    // Lưu vào Local Storage (Local Leaderboard giả lập)
+    let localTop = JSON.parse(localStorage.getItem('local_top3') || "[]");
+    localTop.push({ name, score });
+    localTop.sort((a, b) => b.score - a.score);
+    localTop = localTop.slice(0, 3);
+    localStorage.setItem('local_top3', JSON.stringify(localTop));
+
+    // Lưu vào Supabase nếu đã đăng nhập
+    if (supabaseClient && currentUser) {
+        const { error } = await supabaseClient
+            .from('leaderboard')
+            .upsert({ 
+                user_id: currentUser.id, 
+                player_name: name, 
+                score: score,
+                updated_at: new Date()
+            }, { onConflict: 'user_id' });
+        
+        if (error) console.error("Lỗi lưu Supabase:", error.message);
+    }
+    
+    loadLeaderboard();
+}
+
+async function loadLeaderboard() {
+    const listDiv = document.getElementById('leaderboard-list');
+    let topData = [];
+
+    // Hàm format thời gian giống timer
+    const formatTime = (totalSeconds) => {
+        let minutes = Math.floor(totalSeconds / 60);
+        let seconds = totalSeconds % 60;
+        return String(minutes).padStart(2, '0') + ":" + String(seconds).padStart(2, '0');
+    };
+
+    if (supabaseClient) {
+        const { data, error } = await supabaseClient
+            .from('leaderboard')
+            .select('player_name, score')
+            .order('score', { ascending: false })
+            .limit(3);
+        
+        if (!error && data) topData = data.map(d => ({ name: d.player_name, score: d.score }));
+    }
+
+    // Nếu không có data từ Supabase hoặc lỗi, dùng Local Data
+    if (topData.length === 0) {
+        topData = JSON.parse(localStorage.getItem('local_top3') || "[]");
+    }
+
+    listDiv.innerHTML = topData.map((item, index) => `
+        <div class="leaderboard-item">
+            <span>${index + 1}. ${item.name}</span>
+            <span>${formatTime(item.score)}</span>
+        </div>
+    `).join('');
 }
 
 function showGameOver() {

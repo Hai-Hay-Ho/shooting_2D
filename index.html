@@ -3,12 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bắn lẹ lên coi</title>
+    <title>Bắn lẹ mình ơi</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
 </head>
 <body>
-    <div id="game-container"></div>
+    <div id="game-container">
+        <div id="ui-overlay">
+            <div id="leaderboard">
+                <div class="leaderboard-title">TOP 3 SURVIVAL</div>
+                <div id="leaderboard-list"></div>
+            </div>
+        </div>
+    </div>
     <script src="game.js"></script>
 </body>
 </html>

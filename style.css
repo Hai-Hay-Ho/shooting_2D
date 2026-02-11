@@ -11,4 +11,71 @@ body {
 #game-container {
     border: 2px solid #fff;
     box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    position: relative;
+}
+
+#ui-overlay {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    pointer-events: none;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+#auth-box {
+    pointer-events: auto;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+#auth-box input {
+    padding: 5px;
+    border-radius: 3px;
+    border: none;
+    width: 150px;
+}
+
+#auth-box button {
+    padding: 5px 10px;
+    cursor: pointer;
+    background: #4285F4;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    margin-top: 5px;
+}
+
+#leaderboard {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 10px;
+    border-radius: 5px;
+    width: 200px;
+    border-left: 4px solid rgba(255, 215, 0, 0.6);
+}
+
+.leaderboard-title {
+    font-weight: bold;
+    color: #ffd700;
+    margin-bottom: 5px;
+    text-align: center;
+}
+
+.leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    padding: 5px 0;
+    border-bottom: 1px dashed rgba(255, 215, 0, 0.3);
+}
+
+.leaderboard-item:last-child {
+    border-bottom: none;
+}
+
+.current-player {
+    color: #00ff00;
 }
