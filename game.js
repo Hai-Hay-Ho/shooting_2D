@@ -29,6 +29,8 @@ function preload() {
     this.load.image('shoot', 'assets/shoot.png');
     this.load.image('shop', 'assets/shop.png');
     this.load.image('coin', 'assets/coin.png');
+    this.load.image('heart', 'assets/heart.png');
+    this.load.image('gun', 'assets/gun.png');
 }
 
 function create() {
@@ -52,6 +54,93 @@ function create() {
         fill: "#ffd700",
         fontStyle: "bold"
     }).setOrigin(0, 0.5).setDepth(20);
+
+    // Initial Shop Levels
+    this.gunLevel = 0;
+    this.hpLevel = 0;
+    this.playerDamage = 10;
+    this.upgradeCost = 50;
+
+    this.shopContainer = this.add.container(400, 300).setDepth(30).setVisible(false);
+    
+    let shopBg = this.add.rectangle(0, 0, 500, 300, 0x000000, 0.8)
+        .setStrokeStyle(4, 0xffffff);
+    this.shopContainer.add(shopBg);
+
+    let shopTitle = this.add.text(0, -120, "CỬA HÀNG NÂNG CẤP", {
+        fontSize: "28px",
+        fill: "#ffffff",
+        fontStyle: "bold"
+    }).setOrigin(0.5);
+    this.shopContainer.add(shopTitle);
+
+    // Gun Upgrade
+    let gunIcon = this.add.image(-130, -40, 'gun').setScale(0.6);
+    this.gunLevelText = this.add.text(-80, -40, "Level: 0", { fontSize: "20px", fill: "#ffffff" }).setOrigin(0, 0.5);
+    let gunDesc = this.add.text(30, -40, "+2.5 DMG", { fontSize: "16px", fill: "#00ff00" }).setOrigin(0, 0.5);
+    let gunBtn = this.add.text(140, -40, "50 Xu", {
+        fontSize: "20px",
+        fill: "#ffffff",
+        backgroundColor: "#d4af37",
+        padding: { x: 10, y: 5 }
+    }).setOrigin(0, 0.5).setInteractive();
+    this.shopContainer.add([gunIcon, this.gunLevelText, gunDesc, gunBtn]);
+
+    // HP Upgrade
+    let hpIcon = this.add.image(-130, 40, 'heart').setScale(0.7);
+    this.hpLevelText = this.add.text(-80, 40, "Level: 0", { fontSize: "20px", fill: "#ffffff" }).setOrigin(0, 0.5);
+    let hpDesc = this.add.text(30, 40, "+25 HP", { fontSize: "16px", fill: "#00ff00" }).setOrigin(0, 0.5);
+    let hpBtn = this.add.text(140, 40, "50 Xu", {
+        fontSize: "20px",
+        fill: "#ffffff",
+        backgroundColor: "#d4af37",
+        padding: { x: 10, y: 5 }
+    }).setOrigin(0, 0.5).setInteractive();
+    this.shopContainer.add([hpIcon, this.hpLevelText, hpDesc, hpBtn]);
+
+    // Close Button
+    let closeBtn = this.add.text(180, -135, "X", {
+        fontSize: "24px",
+        fill: "#ff0000",
+        fontStyle: "bold"
+    }).setInteractive();
+    closeBtn.on('pointerdown', () => this.shopContainer.setVisible(false));
+    this.shopContainer.add(closeBtn);
+
+    this.shopIcon.on('pointerdown', () => {
+        this.shopContainer.setVisible(!this.shopContainer.visible);
+    });
+
+    gunBtn.on('pointerdown', () => {
+        if (this.coins >= this.upgradeCost) {
+            this.coins -= this.upgradeCost;
+            this.gunLevel++;
+            this.playerDamage += 2.5;
+            this.coinText.setText(this.coins);
+            this.gunLevelText.setText("Level: " + this.gunLevel);
+            gunBtn.setBackgroundColor('#00ff00');
+            this.time.delayedCall(200, () => gunBtn.setBackgroundColor('#d4af37'));
+        } else {
+            gunBtn.setBackgroundColor('#ff0000');
+            this.time.delayedCall(200, () => gunBtn.setBackgroundColor('#d4af37'));
+        }
+    });
+
+    hpBtn.on('pointerdown', () => {
+        if (this.coins >= this.upgradeCost) {
+            this.coins -= this.upgradeCost;
+            this.hpLevel++;
+            this.player.maxHp += 25;
+            this.player.hp += 25; // Hồi máu khi nâng cấp
+            this.coinText.setText(this.coins);
+            this.hpLevelText.setText("Level: " + this.hpLevel);
+            hpBtn.setBackgroundColor('#00ff00');
+            this.time.delayedCall(200, () => hpBtn.setBackgroundColor('#d4af37'));
+        } else {
+            hpBtn.setBackgroundColor('#ff0000');
+            this.time.delayedCall(200, () => hpBtn.setBackgroundColor('#d4af37'));
+        }
+    });
 
     this.bg = this.add.tileSprite(0, 0, 800, 600, 'background').setOrigin(0, 0);
 
@@ -137,7 +226,7 @@ function update() {
             // Spam thêm một đợt quái ngẫu nhiên 1 đến spawnCount
             let extraSpawn = Phaser.Math.Between(1, this.spawnCount);
             for (let i = 0; i < extraSpawn; i++) {
-                this.time.delayedCall(i * 100, () => {
+                this.time.delayedCall(i * 400, () => {//mỗi con quái spam cách nhau 0.4s
                     this.spawnEnemy(850 + (i * 40), 310);
                 });
             }
@@ -174,7 +263,7 @@ function update() {
         if (targetEnemy) {
             let currentTime = this.time.now;
             if (currentTime - this.lastShootTime > 400) { // bắn mỗi 400ms
-                targetEnemy.hp -= 10;
+                targetEnemy.hp -= this.playerDamage;
                 this.lastShootTime = currentTime;
 
                 targetEnemy.setTint(0xff0000);
