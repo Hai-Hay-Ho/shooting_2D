@@ -63,7 +63,8 @@ function create() {
     this.attackSpeedLevel = 0;
     this.playerDamage = 10;
     this.fireRateMultiplier = 1.0;
-    this.upgradeCost = 50;
+    this.baseUpgradeCost = 40;//giá cơ bản 40 xu
+    this.upgradeStep = 5;
     
 
     this.shopContainer = this.add.container(400, 300).setDepth(30).setVisible(false);
@@ -83,7 +84,7 @@ function create() {
     let gunIcon = this.add.image(-130, -80, 'gun').setScale(0.6);
     this.gunLevelText = this.add.text(-80, -80, "Level: 0", { fontSize: "20px", fill: "#ffffff" }).setOrigin(0, 0.5);
     let gunDesc = this.add.text(30, -80, "+2.5 DMG", { fontSize: "16px", fill: "#00ff00" }).setOrigin(0, 0.5);
-    let gunBtn = this.add.text(140, -80, "50 Xu", {
+    let gunBtn = this.add.text(140, -80, "40 Xu", {
         fontSize: "20px",
         fill: "#ffffff",
         backgroundColor: "#d4af37",
@@ -95,7 +96,7 @@ function create() {
     let hpIcon = this.add.image(-130, 0, 'heart').setScale(0.7);
     this.hpLevelText = this.add.text(-80, 0, "Level: 0", { fontSize: "20px", fill: "#ffffff" }).setOrigin(0, 0.5);
     let hpDesc = this.add.text(30, 0, "+25 HP", { fontSize: "16px", fill: "#00ff00" }).setOrigin(0, 0.5);
-    let hpBtn = this.add.text(140, 0, "50 Xu", {
+    let hpBtn = this.add.text(140, 0, "40 Xu", {
         fontSize: "20px",
         fill: "#ffffff",
         backgroundColor: "#d4af37",
@@ -107,7 +108,7 @@ function create() {
     let spdIcon = this.add.image(-130, 80, 'bullet').setScale(0.06);
     this.spdLevelText = this.add.text(-80, 80, "Level: 0", { fontSize: "20px", fill: "#ffffff" }).setOrigin(0, 0.5);
     let spdDesc = this.add.text(30, 80, "+0.025 Spd", { fontSize: "16px", fill: "#00ff00" }).setOrigin(0, 0.5);
-    let spdBtn = this.add.text(140, 80, "50 Xu", {
+    let spdBtn = this.add.text(140, 80, "40 Xu", {
         fontSize: "20px",
         fill: "#ffffff",
         backgroundColor: "#d4af37",
@@ -129,12 +130,17 @@ function create() {
     });
 
     gunBtn.on('pointerdown', () => {
-        if (this.coins >= this.upgradeCost) {
-            this.coins -= this.upgradeCost;
+        let currentCost = this.baseUpgradeCost + (this.gunLevel * this.upgradeStep);
+        if (this.coins >= currentCost) {
+            this.coins -= currentCost;
             this.gunLevel++;
             this.playerDamage += 2.5;
             this.coinText.setText(this.coins);
             this.gunLevelText.setText("Level: " + this.gunLevel);
+            
+            let nextCost = this.baseUpgradeCost + (this.gunLevel * this.upgradeStep);
+            gunBtn.setText(nextCost + " Xu");
+
             gunBtn.setBackgroundColor('#00ff00');
             this.time.delayedCall(200, () => gunBtn.setBackgroundColor('#d4af37'));
         } else {
@@ -144,13 +150,18 @@ function create() {
     });
 
     hpBtn.on('pointerdown', () => {
-        if (this.coins >= this.upgradeCost) {
-            this.coins -= this.upgradeCost;
+        let currentCost = this.baseUpgradeCost + (this.hpLevel * this.upgradeStep);
+        if (this.coins >= currentCost) {
+            this.coins -= currentCost;
             this.hpLevel++;
             this.player.maxHp += 25;
             this.player.hp += 25; // Hồi máu khi nâng cấp
             this.coinText.setText(this.coins);
             this.hpLevelText.setText("Level: " + this.hpLevel);
+
+            let nextCost = this.baseUpgradeCost + (this.hpLevel * this.upgradeStep);
+            hpBtn.setText(nextCost + " Xu");
+
             hpBtn.setBackgroundColor('#00ff00');
             this.time.delayedCall(200, () => hpBtn.setBackgroundColor('#d4af37'));
         } else {
@@ -160,12 +171,17 @@ function create() {
     });
 
     spdBtn.on('pointerdown', () => {
-        if (this.coins >= this.upgradeCost) {
-            this.coins -= this.upgradeCost;
+        let currentCost = this.baseUpgradeCost + (this.attackSpeedLevel * this.upgradeStep);
+        if (this.coins >= currentCost) {
+            this.coins -= currentCost;
             this.attackSpeedLevel++;
             this.fireRateMultiplier += 0.025;
             this.coinText.setText(this.coins);
             this.spdLevelText.setText("Level: " + this.attackSpeedLevel);
+
+            let nextCost = this.baseUpgradeCost + (this.attackSpeedLevel * this.upgradeStep);
+            spdBtn.setText(nextCost + " Xu");
+
             spdBtn.setBackgroundColor('#00ff00');
             this.time.delayedCall(200, () => spdBtn.setBackgroundColor('#d4af37'));
         } else {
