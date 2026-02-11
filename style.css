@@ -110,27 +110,70 @@ body {
 
 .close-btn {
     position: absolute;
-    top: -10px;
-    right: 0;
-    font-size: 24px;
+    top: -30px;
+    right: -15px;
+    font-size: 32px;
     cursor: pointer;
-    color: #ff0000;
+    color: #ff4444;
+    transition: transform 0.2s, color 0.2s;
+    font-weight: bold;
+    z-index: 2001;
 }
 
+.close-btn:hover {
+    transform: scale(1.2);
+    color: #ffffff;
+}
+
+#btn-google-login svg, #btn-google-login span {
+    pointer-events: none;
+}
+    
+
 #auth-section button, #btn-save-name {
-    padding: 8px 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 15px;
+    background: white;
+    color: #444;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 15px auto 0;
+    font-weight: bold;
+    width: 220px;
+    transition: all 0.2s;
+}
+
+#auth-section button:hover {
+    background: #f7f7f7;
+}
+
+#btn-google-login svg {
+    flex-shrink: 0;
+    display: block;
+}
+
+#btn-save-name {
     background: #4285F4;
     color: white;
     border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    margin-top: 10px;
+    margin-top: 15px;
+}
+
+#btn-save-name:hover {
+    background: #357ae8;
 }
 
 #change-name-input {
-    padding: 8px;
+    padding: 10px;
     border-radius: 5px;
-    border: none;
-    width: 80%;
-    margin-top: 10px;
+    border: 1px solid #555;
+    background: #222;
+    color: white;
+    width: 200px;
+    margin-top: 20px;
+    display: inline-block;
 }

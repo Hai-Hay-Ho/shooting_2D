@@ -57,6 +57,9 @@ function create() {
     
     // Khởi tạo tính năng Leaderboard và Auth
     initSupabaseAuth.call(this);
+    
+    // Đảm bảo load leaderboard ngay lập tức từ Database (nếu có key) 
+    // hoặc Local Storage khi game khởi tạo
     loadLeaderboard();
 
     this.timeText = this.add.text(400, 20, "00:00", {
@@ -308,6 +311,9 @@ function create() {
 
     this.rightBtnBg.on('pointerup', release);
     this.rightBtnBg.on('pointerout', release);
+
+    // Khởi tạo Auth
+    initSupabaseAuth();
 }
 
 function update() {
@@ -427,17 +433,52 @@ function initSupabaseAuth() {
     const changeNameInput = document.getElementById('change-name-input');
 
     if (supabaseClient) {
+        // 1. Kiểm tra session ngay lập tức khi load trang
         supabaseClient.auth.getSession().then(({ data: { session } }) => {
             if (session) {
                 currentUser = session.user;
+                console.log("Session found:", currentUser.email);
+                updateUserUI();
+            }
+        });
+
+        // 2. Lắng nghe thay đổi trạng thái đăng nhập
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+            if (session) {
+                currentUser = session.user;
+                updateUserUI(); // Cập nhật ngay UI cơ bản trước khi query DB
+                
+                try {
+                    // Kiểm tra và tạo profile nếu chưa có (không để lỗi này chặn UI)
+                    const { data: profile, error: selectError } = await supabaseClient
+                        .from('profiles')
+                        .select('display_name')
+                        .eq('id', currentUser.id)
+                        .single();
+
+                    if (!profile) {
+                        await supabaseClient.from('profiles').insert({
+                            id: currentUser.id,
+                            display_name: currentUser.user_metadata.full_name || "New Player"
+                        });
+                    }
+                } catch (err) {
+                    console.warn("Không thể truy cập bảng profiles. Hãy đảm bảo bạn đã tạo table 'profiles' trên Supabase.", err);
+                }
+                
+                updateUserUI(); // Cập nhật lại UI sau khi có dữ liệu DB
+            } else {
+                currentUser = null;
                 updateUserUI();
             }
         });
 
         loginBtn.onclick = async () => {
+            // Chú ý: Chỉ lấy URL gốc, xóa bỏ các token/hash cũ trên URL để tránh lỗi 400 từ Google
+            const cleanURL = window.location.origin + window.location.pathname;
             const { error } = await supabaseClient.auth.signInWithOAuth({
                 provider: 'google',
-                options: { redirectTo: window.location.href }
+                options: { redirectTo: cleanURL }
             });
             if (error) console.error("Lỗi đăng nhập:", error.message);
         };
@@ -445,36 +486,59 @@ function initSupabaseAuth() {
         saveNameBtn.onclick = async () => {
             const newName = changeNameInput.value.trim();
             if (newName && currentUser) {
-                const { error } = await supabaseClient
-                    .from('leaderboard')
-                    .upsert({ 
-                        user_id: currentUser.id, 
-                        player_name: newName,
-                        updated_at: new Date()
-                    }, { onConflict: 'user_id' });
-                
-                if (!error) {
-                    alert("Đã đổi tên thành công!");
-                    localStorage.setItem('display_name', newName);
-                    loadLeaderboard();
-                } else {
-                    console.error("Lỗi đổi tên:", error.message);
+                try {
+                    const { error } = await supabaseClient
+                        .from('profiles')
+                        .update({ display_name: newName })
+                        .eq('id', currentUser.id);
+                    
+                    if (!error) {
+                        alert("Đã đổi tên thành công!");
+                        localStorage.setItem('display_name', newName); // Local cache
+                        updateUserUI();
+                        loadLeaderboard();
+                    } else {
+                        alert("Lỗi đổi tên: " + error.message);
+                    }
+                } catch (err) {
+                    console.error("Lỗi đổi tên:", err);
                 }
             }
         };
     }
 }
 
-function updateUserUI() {
+async function updateUserUI() {
     const authSection = document.getElementById('auth-section');
     const profileSection = document.getElementById('profile-section');
     const welcomeMsg = document.getElementById('welcome-msg');
     const changeNameInput = document.getElementById('change-name-input');
 
+    if (!authSection || !profileSection) return;
+
     if (currentUser) {
         authSection.classList.add('display-none');
         profileSection.classList.remove('display-none');
-        const displayName = localStorage.getItem('display_name') || currentUser.user_metadata.full_name || currentUser.email;
+        
+        // Mặc định lấy tên từ thông tin đăng nhập trước
+        let displayName = localStorage.getItem('display_name') || currentUser.user_metadata.full_name || currentUser.email;
+        
+        // Sau đó thử lấy từ Database (vì hàm này là async, nó sẽ chạy tiếp)
+        if (supabaseClient) {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('profiles')
+                    .select('display_name')
+                    .eq('id', currentUser.id)
+                    .single();
+                if (data && data.display_name) {
+                    displayName = data.display_name;
+                    localStorage.setItem('display_name', displayName);
+                }
+            } catch (e) {
+            }
+        }
+        
         welcomeMsg.innerText = "Chào, " + displayName;
         changeNameInput.value = displayName;
     } else {
@@ -484,65 +548,111 @@ function updateUserUI() {
 }
 
 async function saveScore(score) {
-    // Lấy tên ưu tiên: Tên đã đổi > Tên Google > Guest
-    const name = localStorage.getItem('display_name') || (currentUser ? (currentUser.user_metadata.full_name || currentUser.email) : "Guest");
+    if (isNaN(score) || score <= 0) return;
     
-    // Lưu vào Local Storage (Local Leaderboard giả lập)
+    
+    // cập nhật session mới nhất
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        currentUser = session ? session.user : null;
+    } catch (e) {
+        console.warn("Không lấy được session:", e);
+    }
+
+    let displayName = "Người chơi Guest";
+    if (currentUser) {
+        displayName = localStorage.getItem('display_name') || currentUser.user_metadata.full_name || currentUser.email;
+    }
+
+    // lưu Local Storage (Luôn thực hiện)
     let localTop = JSON.parse(localStorage.getItem('local_top3') || "[]");
-    localTop.push({ name, score });
+    localTop.push({ name: displayName, score: score });
     localTop.sort((a, b) => b.score - a.score);
     localTop = localTop.slice(0, 3);
     localStorage.setItem('local_top3', JSON.stringify(localTop));
 
-    // Lưu vào Supabase nếu đã đăng nhập
+    // lưu Supabase 
     if (supabaseClient && currentUser) {
-        const { error } = await supabaseClient
-            .from('leaderboard')
-            .upsert({ 
-                user_id: currentUser.id, 
-                player_name: name, 
-                score: score,
-                updated_at: new Date()
-            }, { onConflict: 'user_id' });
-        
-        if (error) console.error("Lỗi lưu Supabase:", error.message);
-    }
+        try {      
+            const { data: oldData, error: fetchError } = await supabaseClient
+                .from('leaderboard')
+                .select('survival_time')
+                .eq('user_id', currentUser.id)
+                .maybeSingle();
+
+            const currentBest = oldData ? oldData.survival_time : 0;
+
+            if (score > currentBest) {
+                
+                const { data, error: upsertError } = await supabaseClient
+                    .from('leaderboard')
+                    .upsert({ 
+                        user_id: currentUser.id, 
+                        survival_time: score 
+                    }, { 
+                        onConflict: 'user_id' 
+                    });
+            } 
+        } catch (err) {
+            console.error("Lỗi logic lưu điểm:", err);
+        }
+    } 
+    await loadLeaderboard();
     
-    loadLeaderboard();
 }
 
 async function loadLeaderboard() {
     const listDiv = document.getElementById('leaderboard-list');
+    if (!listDiv) return;
+    
     let topData = [];
 
-    // Hàm format thời gian giống timer
     const formatTime = (totalSeconds) => {
         let minutes = Math.floor(totalSeconds / 60);
         let seconds = totalSeconds % 60;
         return String(minutes).padStart(2, '0') + ":" + String(seconds).padStart(2, '0');
     };
 
+    //Load toàn bộ Top 3 của mọi người chơi từ Supabase
     if (supabaseClient) {
-        const { data, error } = await supabaseClient
-            .from('leaderboard')
-            .select('player_name, score')
-            .order('score', { ascending: false })
-            .limit(3);
-        
-        if (!error && data) topData = data.map(d => ({ name: d.player_name, score: d.score }));
+        try {
+            const { data, error } = await supabaseClient
+                .from('leaderboard')
+                .select(`
+                    survival_time,
+                    profiles (
+                        display_name
+                    )
+                `)
+                .order('survival_time', { ascending: false })
+                .limit(3);
+            
+            if (!error && data && data.length > 0) {
+                topData = data.map(d => ({ 
+                    name: d.profiles ? d.profiles.display_name : "Ẩn danh", 
+                    score: d.survival_time 
+                }));
+                console.log("Dữ liệu từ Database:", topData);
+            }
+        } catch (e) {
+            console.error("Lỗi kết nối Supabase, đang dùng Local thay thế...", e);
+        }
     }
 
-    // Nếu không có data từ Supabase hoặc lỗi, dùng Local Data
+    // 2. Nếu Database trống hoặc không kết nối được (do xóa cache/offline), dùng Local Data
     if (topData.length === 0) {
-        topData = JSON.parse(localStorage.getItem('local_top3') || "[]");
+        const localRaw = JSON.parse(localStorage.getItem('local_top3') || "[]");
+        topData = localRaw.map(d => ({ name: d.name, score: d.score }));
+        console.log("Dữ liệu từ Local Storage:", topData);
     }
 
-    listDiv.innerHTML = topData.map((item, index) => `
+    // hiển thị lên HTML
+    listDiv.innerHTML = topData.length > 0 ? topData.map((item, index) => `
         <div class="leaderboard-item">
             <span>${index + 1}. ${item.name}</span>
             <span>${formatTime(item.score)}</span>
         </div>
-    `).join('');
+    `).join('') : '<div style="font-size:12px; opacity:0.6;">Chưa có dữ liệu</div>';
 }
 
 function showGameOver() {
