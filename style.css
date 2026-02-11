@@ -110,8 +110,8 @@ body {
 
 .close-btn {
     position: absolute;
-    top: -30px;
-    right: -15px;
+    top: -20px;
+    right: -10px;
     font-size: 32px;
     cursor: pointer;
     color: #ff4444;
@@ -120,10 +120,6 @@ body {
     z-index: 2001;
 }
 
-.close-btn:hover {
-    transform: scale(1.2);
-    color: #ffffff;
-}
 
 #btn-google-login svg, #btn-google-login span {
     pointer-events: none;
