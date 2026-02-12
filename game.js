@@ -52,6 +52,9 @@ function preload() {
     this.load.image('bullet', 'assets/bullet.png');
     this.load.image('move_right', 'assets/right.png');
     this.load.image('user', 'assets/user.png');
+    this.load.image('character_2', 'assets/character_2.png');
+    this.load.image('character_2_run', 'assets/character_2_run.png');
+    this.load.image('character_2_shoot', 'assets/character_2_shoot.png');
 }
 
 function create() {
@@ -93,6 +96,7 @@ function create() {
     this.baseUpgradeCost = 40;//giá cơ bản 40 xu
     this.upgradeStep = 5;
     
+    this.activeSkin = 'default';
 
     this.shopContainer = this.add.container(400, 300).setDepth(30).setVisible(false);
     
@@ -100,12 +104,17 @@ function create() {
         .setStrokeStyle(4, 0xffffff);
     this.shopContainer.add(shopBg);
 
-    let shopTitle = this.add.text(0, -160, "CỬA HÀNG NÂNG CẤP", {
+    this.shopTitle = this.add.text(0, -160, "CỬA HÀNG NÂNG CẤP", {
         fontSize: "28px",
         fill: "#ffffff",
         fontStyle: "bold"
     }).setOrigin(0.5);
-    this.shopContainer.add(shopTitle);
+    this.shopContainer.add(this.shopTitle);
+
+    // Tạo các trang (pages)
+    this.upgradePage = this.add.container(0, 0);
+    this.skinPage = this.add.container(0, 0).setVisible(false);
+    this.shopContainer.add([this.upgradePage, this.skinPage]);
 
     // Gun Upgrade (Damage)
     let gunIcon = this.add.image(-130, -80, 'gun').setScale(0.6);
@@ -117,7 +126,7 @@ function create() {
         backgroundColor: "#d4af37",
         padding: { x: 10, y: 5 }
     }).setOrigin(0, 0.5).setInteractive();
-    this.shopContainer.add([gunIcon, this.gunLevelText, gunDesc, gunBtn]);
+    this.upgradePage.add([gunIcon, this.gunLevelText, gunDesc, gunBtn]);
 
     // HP Upgrade
     let hpIcon = this.add.image(-130, 0, 'heart').setScale(0.7);
@@ -129,7 +138,7 @@ function create() {
         backgroundColor: "#d4af37",
         padding: { x: 10, y: 5 }
     }).setOrigin(0, 0.5).setInteractive();
-    this.shopContainer.add([hpIcon, this.hpLevelText, hpDesc, hpBtn]);
+    this.upgradePage.add([hpIcon, this.hpLevelText, hpDesc, hpBtn]);
 
     // Attack Speed Upgrade
     let spdIcon = this.add.image(-130, 80, 'bullet').setScale(0.06);
@@ -141,7 +150,36 @@ function create() {
         backgroundColor: "#d4af37",
         padding: { x: 10, y: 5 }
     }).setOrigin(0, 0.5).setInteractive();
-    this.shopContainer.add([spdIcon, this.spdLevelText, spdDesc, spdBtn]);
+    this.upgradePage.add([spdIcon, this.spdLevelText, spdDesc, spdBtn]);
+
+    // Nội dung Cửa hàng Skin 
+    let skinIcon = this.add.image(-150, -50, 'character_2').setScale(0.2);
+    let skinName = this.add.text(-80, -40, "Skin Hiếm", { fontSize: "20px", fill: "#ffffff" }).setOrigin(0, 0.5);
+    let skinBtn = this.add.text(140, -40, "150 Xu", {
+        fontSize: "20px",
+        fill: "#ffffff",
+        backgroundColor: "#d4af37",
+        padding: { x: 10, y: 5 }
+    }).setOrigin(0, 0.5).setInteractive();
+    this.skinPage.add([skinIcon, skinName, skinBtn]);
+
+    // Button Mũi tên để chuyển trang
+    let switchBtn = this.add.image(0, 160, 'move_right').setScale(0.8).setInteractive();
+    this.shopContainer.add(switchBtn);
+
+    switchBtn.on('pointerdown', () => {
+        if (this.upgradePage.visible) {
+            this.upgradePage.setVisible(false);
+            this.skinPage.setVisible(true);
+            this.shopTitle.setText("CỬA HÀNG SKIN");
+            switchBtn.setFlipX(true); // Thành mũi tên back
+        } else {
+            this.upgradePage.setVisible(true);
+            this.skinPage.setVisible(false);
+            this.shopTitle.setText("CỬA HÀNG NÂNG CẤP");
+            switchBtn.setFlipX(false); // Thành mũi tên next
+        }
+    });
 
     // Close Button
     let closeBtn = this.add.text(180, -175, "X", {
@@ -165,6 +203,24 @@ function create() {
     document.getElementById('close-user-popup').onclick = () => {
         document.getElementById('user-popup').classList.add('popup-hidden');
     };
+
+    // Logic mua Skin
+    skinBtn.on('pointerdown', () => {
+        if (this.coins >= 150) {
+            this.coins -= 150;
+            this.coinText.setText(this.coins);
+            this.activeSkin = 'skin2';
+            this.player.setTexture('character_2');
+            this.player.setScale(0.3); 
+            this.player.setY(310);
+            skinBtn.setText("ĐÃ MUA");
+            skinBtn.setBackgroundColor('#00ff00');
+            skinBtn.disableInteractive();
+        } else {
+            skinBtn.setBackgroundColor('#ff0000');
+            this.time.delayedCall(200, () => skinBtn.setBackgroundColor('#d4af37'));
+        }
+    });
 
     gunBtn.on('pointerdown', () => {
         let currentCost = this.baseUpgradeCost + (this.gunLevel * this.upgradeStep);
@@ -392,10 +448,11 @@ function update() {
     }
 
     // thanh máu player
+    let hpBarOffset = this.activeSkin === 'skin2' ? 100 : 40;
     drawHealthBar(
         this.playerHPBar,
         this.player.x - 30,
-        this.player.y - 40,
+        this.player.y - hpBarOffset,
         this.player.hp,
         this.player.maxHp,
         60
@@ -711,24 +768,47 @@ function move() {
     
     let isMovingRight = this.cursors.right.isDown || this.isRightDown;
 
+    // Định nghĩa textures dựa trên skin hiện tại
+    let textures = {
+        idle: 'character',
+        run: 'run',
+        shoot: 'shoot',
+        runShoot: 'run_shoot'
+    };
+
+    if (this.activeSkin === 'skin2') {
+        textures = {
+            idle: 'character_2',
+            run: 'character_2_run',
+            shoot: 'character_2_shoot',
+            // Vì character_2 không có run_shoot, ta sẽ tự phối hợp xen kẽ trong logic texture
+            runShoot: 'character_2_run' 
+        };
+    }
+
     if (isMovingRight) {
         this.bg.tilePositionX += 5;
         this.player.setFlipX(false);
         if (Math.floor(this.time.now / 150) % 2 === 0) {
-            this.player.setTexture(enemyOnScreen ? 'run_shoot' : 'run');
+            if (this.activeSkin === 'skin2' && enemyOnScreen) {
+                // Xen kẽ run và shoot cho character_2 khi vừa chạy vừa bắn
+                this.player.setTexture(Math.floor(this.time.now / 150) % 4 < 2 ? 'character_2_run' : 'character_2_shoot');
+            } else {
+                this.player.setTexture(enemyOnScreen ? textures.runShoot : textures.run);
+            }
         } else {
-            this.player.setTexture('character');
+            this.player.setTexture(textures.idle);
         }
     } 
     else if (enemyOnScreen) {
         if (Math.floor(this.time.now / 200) % 2 === 0) {
-            this.player.setTexture('shoot');
+            this.player.setTexture(textures.shoot);
         } else {
-            this.player.setTexture('character');
+            this.player.setTexture(textures.idle);
         }
     } 
     else {
-        this.player.setTexture('character');
+        this.player.setTexture(textures.idle);
     }
 
     // Cập nhật trạng thái cho tất cả quái vật
